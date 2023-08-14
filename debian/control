@@ -36,7 +36,7 @@ Depends: adduser,
          lsb-base (>= 3.0-6),
          ${misc:Depends},
          ${shlibs:Depends}
-Recommends: xserver-xorg
+Recommends: xserver-xorg, deepin-keyring-whitebox
 Suggests: accountsservice, upower, xserver-xephyr
 Provides: x-display-manager
 Description: simple display manager
