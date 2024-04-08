@@ -54,13 +54,13 @@ index bf725ac..62b4bf3 100644
      // FIXME: Should probably give the greeter a chance to ack the message
      if (n_prompts == 0)
 @@ -614,8 +615,8 @@ handle_continue_authentication (Greeter *greeter, gchar **secrets)
-     if (greeter->priv->authentication_session == NULL)
+     if (priv->authentication_session == NULL)
          return;
  
--    int messages_length = session_get_messages_length (greeter->priv->authentication_session);
--    const struct pam_message *messages = session_get_messages (greeter->priv->authentication_session);
-+    int messages_length = session_get_prompt_messages_length (greeter->priv->authentication_session);
-+    const struct pam_message *messages = session_get_prompt_messages (greeter->priv->authentication_session);
+-    int messages_length = session_get_messages_length (priv->authentication_session);
+-    const struct pam_message *messages = session_get_messages (priv->authentication_session);
++    int messages_length = session_get_prompt_messages_length (priv->authentication_session);
++    const struct pam_message *messages = session_get_prompt_messages (priv->authentication_session);
  
      /* Check correct number of responses */
      int n_prompts = 0;
@@ -68,8 +68,8 @@ index bf725ac..62b4bf3 100644
      }
      if (g_strv_length (secrets) != n_prompts)
      {
--        session_respond_error (greeter->priv->authentication_session, PAM_CONV_ERR);
-+        session_prompt_respond_error (greeter->priv->authentication_session, PAM_CONV_ERR);
+-        session_respond_error (priv->authentication_session, PAM_CONV_ERR);
++        session_prompt_respond_error (priv->authentication_session, PAM_CONV_ERR);
          return;
      }
  
@@ -77,8 +77,8 @@ index bf725ac..62b4bf3 100644
          }
      }
  
--    session_respond (greeter->priv->authentication_session, response);
-+    session_prompt_respond (greeter->priv->authentication_session, response);
+-    session_respond (priv->authentication_session, response);
++    session_prompt_respond (priv->authentication_session, response);
  
      for (int i = 0; i < messages_length; i++)
          secure_free (greeter, response[i].resp);
@@ -306,14 +306,15 @@ index c1f4420..a91ac0b 100644
  
      /* Authentication result from PAM */
      gboolean authentication_started;
-@@ -353,6 +357,13 @@ write_data (Session *session, const void *buf, size_t count)
+@@ -353,6 +357,14 @@ write_data (Session *session, const void *buf, size_t count)
          l_warning (session, "Error writing to session: %s", strerror (errno));
  }
  
 +static void
 +write_prompt_data (Session *session, const void *buf, size_t count)
 +{
-+    if (write (session->priv->to_child_prompt_input, buf, count) != count)
++    SessionPrivate *priv = session_get_instance_private (session);
++    if (write (priv->to_child_prompt_input, buf, count) != count)
 +        l_warning (session, "Error writing prompt to session: %s", strerror (errno));
 +}
 +
@@ -342,11 +343,11 @@ index c1f4420..a91ac0b 100644
      {
 +        gboolean n_prompts = 0;
 +
-         session->priv->messages_length = 0;
-         read_from_child (session, &session->priv->messages_length, sizeof (session->priv->messages_length));
-         session->priv->messages = calloc (session->priv->messages_length, sizeof (struct pam_message));
+         priv->messages_length = 0;
+         read_from_child (session, &priv->messages_length, sizeof (priv->messages_length));
+         priv->messages = calloc (priv->messages_length, sizeof (struct pam_message));
 @@ -507,6 +529,15 @@ from_child_cb (GIOChannel *source, GIOCondition condition, gpointer data)
-             struct pam_message *m = &session->priv->messages[i];
+             struct pam_message *m = &priv->messages[i];
              read_from_child (session, &m->msg_style, sizeof (m->msg_style));
              m->msg = read_string_from_child (session);
 +
@@ -356,13 +357,13 @@ index c1f4420..a91ac0b 100644
 +
 +        // for prompt message
 +        if (n_prompts) {
-+            session->priv->prompt_messages_length = session->priv->messages_length;
-+            session->priv->prompt_messages = session->priv->messages;
++            priv->prompt_messages_length = priv->messages_length;
++            priv->prompt_messages = priv->messages;
          }
  
-         l_debug (session, "Got %d message(s) from PAM", session->priv->messages_length);
+         l_debug (session, "Got %d message(s) from PAM", priv->messages_length);
 @@ -547,15 +578,17 @@ session_real_start (Session *session)
-         display_server_connect_session (session->priv->display_server, session);
+         display_server_connect_session (priv->display_server, session);
  
      /* Create pipes to talk to the child */
 -    int to_child_pipe[2], from_child_pipe[2];
@@ -375,27 +376,27 @@ index c1f4420..a91ac0b 100644
      }
      int to_child_output = to_child_pipe[0];
 +    int to_child_prompt_output = to_child_prompt_pipe[0];
-     session->priv->to_child_input = to_child_pipe[1];
-     session->priv->from_child_output = from_child_pipe[0];
-+    session->priv->to_child_prompt_input = to_child_prompt_pipe[1];
+     priv->to_child_input = to_child_pipe[1];
+     priv->from_child_output = from_child_pipe[0];
++    priv->to_child_prompt_input = to_child_prompt_pipe[1];
      int from_child_input = from_child_pipe[1];
-     session->priv->from_child_channel = g_io_channel_unix_new (session->priv->from_child_output);
-     session->priv->from_child_watch = g_io_add_watch (session->priv->from_child_channel, G_IO_IN | G_IO_HUP, from_child_cb, session);
+     priv->from_child_channel = g_io_channel_unix_new (priv->from_child_output);
+     priv->from_child_watch = g_io_add_watch (priv->from_child_channel, G_IO_IN | G_IO_HUP, from_child_cb, session);
 @@ -563,6 +596,7 @@ session_real_start (Session *session)
      /* Don't allow the daemon end of the pipes to be accessed in child processes */
-     fcntl (session->priv->to_child_input, F_SETFD, FD_CLOEXEC);
-     fcntl (session->priv->from_child_output, F_SETFD, FD_CLOEXEC);
-+    fcntl (session->priv->to_child_prompt_input, F_SETFD, FD_CLOEXEC);
+     fcntl (priv->to_child_input, F_SETFD, FD_CLOEXEC);
+     fcntl (priv->from_child_output, F_SETFD, FD_CLOEXEC);
++    fcntl (priv->to_child_prompt_input, F_SETFD, FD_CLOEXEC);
  
      /* Create the guest account if it is one */
-     if (session->priv->is_guest && session->priv->username == NULL)
+     if (priv->is_guest && priv->username == NULL)
 @@ -575,6 +609,7 @@ session_real_start (Session *session)
      /* Run the child */
      g_autofree gchar *arg0 = g_strdup_printf ("%d", to_child_output);
      g_autofree gchar *arg1 = g_strdup_printf ("%d", from_child_input);
 +    g_autofree gchar *arg2 = g_strdup_printf ("%d", to_child_prompt_output);
-     session->priv->pid = fork ();
-     if (session->priv->pid == 0)
+     priv->pid = fork ();
+     if (priv->pid == 0)
      {
 @@ -582,7 +617,7 @@ session_real_start (Session *session)
          execlp ("lightdm",
@@ -418,43 +419,46 @@ index c1f4420..a91ac0b 100644
          write_data (session, &response[i].resp_retcode, sizeof (response[i].resp_retcode));
      }
  
-+    if (session->priv->messages == session->priv->prompt_messages) {
++    if (priv->messages == priv->prompt_messages) {
 +        l_warning (session, "%s", "Current message is prompt message");
 +        return;
 +    }
 +
      /* Delete the old messages */
-     for (int i = 0; i < session->priv->messages_length; i++)
-         g_free ((char *) session->priv->messages[i].msg);
-@@ -667,6 +708,33 @@ session_respond (Session *session, struct pam_response *response)
-     session->priv->messages_length = 0;
+     for (int i = 0; i < priv->messages_length; i++)
+         g_free ((char *) priv->messages[i].msg);
+@@ -667,6 +708,36 @@ session_respond (Session *session, struct pam_response *response)
+     priv->messages_length = 0;
  }
  
 +void
 +session_prompt_respond (Session *session, struct pam_response *response)
 +{
++
++    SessionPrivate *priv = session_get_instance_private (session);
++
 +    g_return_if_fail (session != NULL);
 +
 +    int error = PAM_SUCCESS;
 +    write_prompt_data (session, &error, sizeof (error));
-+    for (int i = 0; i < session->priv->prompt_messages_length; i++)
++    for (int i = 0; i < priv->prompt_messages_length; i++)
 +    {
 +        write_prompt_string (session, response[i].resp);
 +        write_prompt_data (session, &response[i].resp_retcode, sizeof (response[i].resp_retcode));
 +    }
 +
 +    // clear
-+    if (session->priv->messages == session->priv->prompt_messages) {
-+        session->priv->messages = NULL;
-+        session->priv->messages_length = 0;
++    if (priv->messages == priv->prompt_messages) {
++        priv->messages = NULL;
++        priv->messages_length = 0;
 +    }
 +
 +    /* Delete the old messages */
-+    for (int i = 0; i < session->priv->prompt_messages_length; i++)
-+        g_free ((char *) session->priv->prompt_messages[i].msg);
-+    g_free (session->priv->prompt_messages);
-+    session->priv->prompt_messages = NULL;
-+    session->priv->prompt_messages_length = 0;
++    for (int i = 0; i < priv->prompt_messages_length; i++)
++        g_free ((char *) priv->prompt_messages[i].msg);
++    g_free (priv->prompt_messages);
++    priv->prompt_messages = NULL;
++    priv->prompt_messages_length = 0;
 +}
 +
  void
@@ -476,43 +480,45 @@ index c1f4420..a91ac0b 100644
  int
  session_get_messages_length (Session *session)
  {
-@@ -690,6 +767,20 @@ session_get_messages (Session *session)
-     return session->priv->messages;
+@@ -690,6 +767,22 @@ session_get_messages (Session *session)
+     return priv->messages;
  }
  
 +int
 +session_get_prompt_messages_length(Session *session)
 +{
++    SessionPrivate *priv = session_get_instance_private (session);
 +    g_return_val_if_fail (session != NULL, 0);
-+    return session->priv->prompt_messages_length;
++    return priv->prompt_messages_length;
 +}
 +
 +const struct pam_message *
 +session_get_prompt_messages(Session *session)
 +{
++    SessionPrivate *priv = session_get_instance_private (session);
 +    g_return_val_if_fail (session != NULL, NULL);
-+    return session->priv->prompt_messages;
++    return priv->prompt_messages;
 +}
 +
  gboolean
  session_get_is_authenticated (Session *session)
  {
 @@ -918,6 +1009,7 @@ session_init (Session *session)
-     session->priv->log_mode = LOG_MODE_BACKUP_AND_TRUNCATE;
-     session->priv->to_child_input = -1;
-     session->priv->from_child_output = -1;
-+    session->priv->to_child_prompt_input = -1;
+     priv->log_mode = LOG_MODE_BACKUP_AND_TRUNCATE;
+     priv->to_child_input = -1;
+     priv->from_child_output = -1;
++    priv->to_child_prompt_input = -1;
  }
  
  static void
 @@ -931,6 +1023,7 @@ session_finalize (GObject *object)
-         kill (self->priv->pid, SIGKILL);
-     close (self->priv->to_child_input);
-     close (self->priv->from_child_output);
-+    close (self->priv->to_child_prompt_input);
-     g_clear_pointer (&self->priv->from_child_channel, g_io_channel_unref);
-     if (self->priv->from_child_watch)
-         g_source_remove (self->priv->from_child_watch);
+         kill (priv->pid, SIGKILL);
+     close (priv->to_child_input);
+     close (priv->from_child_output);
++    close (priv->to_child_prompt_input);
+     g_clear_pointer (&priv->from_child_channel, g_io_channel_unref);
+     if (priv->from_child_watch)
+         g_source_remove (priv->from_child_watch);
 diff --git a/src/session.h b/src/session.h
 index eb3f0c0..787b297 100644
 --- a/src/session.h

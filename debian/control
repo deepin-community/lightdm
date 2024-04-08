@@ -1,10 +1,9 @@
 Source: lightdm
 Section: x11
 Priority: optional
-Maintainer: Deepin Developer <deepin-dev@deepin.org>
-Uploaders: Deepin Packages Builder <packages@deepin.org>
-Build-Depends: debhelper-compat (= 12),
-               dpkg-dev (>= 1.16.1),
+Maintainer: Debian Xfce Maintainers <debian-xfce@lists.debian.org>
+Uploaders: Yves-Alexis Perez <corsac@debian.org>
+Build-Depends: debhelper-compat (= 13),
                gobject-introspection,
                gtk-doc-tools,
                intltool,
@@ -22,10 +21,11 @@ Build-Depends: debhelper-compat (= 12),
                qtbase5-dev,
                valac,
                yelp-tools
-Standards-Version: 4.5.0
-Homepage: https://launchpad.net/lightdm
-#Vcs-Git
-#Vcs-Browser
+Rules-Requires-Root: no
+Standards-Version: 4.6.1
+Homepage: https://discourse.ubuntu.com/c/light-dm/107
+Vcs-Git: https://salsa.debian.org/xfce-extras-team/lightdm.git
+Vcs-Browser: https://salsa.debian.org/xfce-extras-team/lightdm
 
 Package: lightdm
 Architecture: any
@@ -33,7 +33,6 @@ Depends: adduser,
          dbus,
          libpam-systemd [linux-any] | logind [linux-any],
          lightdm-gtk-greeter | lightdm-greeter,
-         lsb-base (>= 3.0-6),
          ${misc:Depends},
          ${shlibs:Depends}
 Recommends: xserver-xorg, deepin-keyring-whitebox
@@ -64,8 +63,8 @@ Package: liblightdm-gobject-1-0
 Section: libs
 Architecture: any
 Multi-Arch: same
-Pre-depends: ${misc:Pre-Depends}
 Depends: ${misc:Depends}, ${shlibs:Depends}
+Pre-Depends: ${misc:Pre-Depends}
 Description: simple display manager (GObject library)
  This package contains the GObject library for lightdm, used by the GTK+
  greeter.

@@ -81,6 +81,7 @@ enum
     USER_PROP_LOGGED_IN,
     USER_PROP_HAS_MESSAGES,
     USER_PROP_UID,
+    USER_PROP_IS_LOCKED,
 };
 
 enum
@@ -112,8 +113,8 @@ typedef struct
     CommonUser *common_user;
 } LightDMUserPrivate;
 
-G_DEFINE_TYPE (LightDMUserList, lightdm_user_list, G_TYPE_OBJECT)
-G_DEFINE_TYPE (LightDMUser, lightdm_user, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE (LightDMUserList, lightdm_user_list, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE (LightDMUser, lightdm_user, G_TYPE_OBJECT)
 
 #define GET_LIST_PRIVATE(obj) G_TYPE_INSTANCE_GET_PRIVATE ((obj), LIGHTDM_TYPE_USER_LIST, LightDMUserListPrivate)
 #define GET_USER_PRIVATE(obj) G_TYPE_INSTANCE_GET_PRIVATE ((obj), LIGHTDM_TYPE_USER, LightDMUserPrivate)
@@ -319,8 +320,6 @@ static void
 lightdm_user_list_class_init (LightDMUserListClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-    g_type_class_add_private (klass, sizeof (LightDMUserListPrivate));
 
     object_class->set_property = lightdm_user_list_set_property;
     object_class->get_property = lightdm_user_list_get_property;
@@ -593,6 +592,21 @@ lightdm_user_get_uid (LightDMUser *user)
     return common_user_get_uid (GET_USER_PRIVATE (user)->common_user);
 }
 
+/**
+ * lightdm_user_get_is_locked:
+ * @user: A #LightDMUser
+ *
+ * Get if the user is locked.
+ *
+ * Returns: %TRUE if the user is locked
+ **/
+gboolean
+lightdm_user_get_is_locked (LightDMUser *user)
+{
+    g_return_val_if_fail (LIGHTDM_IS_USER (user), FALSE);
+    return common_user_get_is_locked (GET_USER_PRIVATE (user)->common_user);
+}
+
 static void
 lightdm_user_init (LightDMUser *user)
 {
@@ -667,6 +681,8 @@ lightdm_user_get_property (GObject    *object,
     case USER_PROP_UID:
         g_value_set_uint64 (value, lightdm_user_get_uid (self));
         break;
+    case USER_PROP_IS_LOCKED:
+        g_value_set_boolean (value, lightdm_user_get_is_locked (self));
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
         break;
@@ -688,8 +704,6 @@ static void
 lightdm_user_class_init (LightDMUserClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-    g_type_class_add_private (klass, sizeof (LightDMUserPrivate));
 
     object_class->set_property = lightdm_user_set_property;
     object_class->get_property = lightdm_user_get_property;
@@ -793,6 +807,13 @@ lightdm_user_class_init (LightDMUserClass *klass)
                                                           "User UID",
                                                           0, G_MAXUINT64, 0,
                                                           G_PARAM_READABLE));
+    g_object_class_install_property (object_class,
+                                     USER_PROP_IS_LOCKED,
+                                     g_param_spec_boolean ("is-locked",
+                                                           "is-locked",
+                                                           "TRUE if the user is currently locked",
+                                                           FALSE,
+                                                           G_PARAM_READABLE));
 
     /**
      * LightDMUser::changed:
