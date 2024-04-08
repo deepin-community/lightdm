@@ -57,23 +57,24 @@ index e1b56f0..07a51c8 100644
      gchar **desktop_names;
  
 @@ -50,6 +53,8 @@ session_config_new_from_file (const gchar *filename, const gchar *default_sessio
-     if (!config->priv->session_type)
-         config->priv->session_type = g_strdup (default_session_type);
+     if (!priv->session_type)
+         priv->session_type = g_strdup (default_session_type);
  
-+    config->priv->name = g_key_file_get_string_list (desktop_file, G_KEY_FILE_DESKTOP_GROUP, "Name", NULL, NULL);
++    priv->name = g_key_file_get_string_list (desktop_file, G_KEY_FILE_DESKTOP_GROUP, "Name", NULL, NULL);
 +
-     config->priv->desktop_names = g_key_file_get_string_list (desktop_file, G_KEY_FILE_DESKTOP_GROUP, "DesktopNames", NULL, NULL);
-     if (!config->priv->desktop_names)
+     priv->desktop_names = g_key_file_get_string_list (desktop_file, G_KEY_FILE_DESKTOP_GROUP, "DesktopNames", NULL, NULL);
+     if (!priv->desktop_names)
      {
-@@ -89,6 +94,13 @@ session_config_get_desktop_names (SessionConfig *config)
-     return config->priv->desktop_names;
+@@ -89,6 +94,14 @@ session_config_get_desktop_names (SessionConfig *config)
+     return priv->desktop_names;
  }
  
 +gchar **
 +session_config_get_name (SessionConfig *config)
 +{
++    SessionConfigPrivate *priv = session_config_get_instance_private (config);
 +    g_return_val_if_fail (config != NULL, NULL);
-+    return config->priv->name;
++    return priv->name;
 +}
 +
  gboolean

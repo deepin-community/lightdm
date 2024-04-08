@@ -1,10 +1,10 @@
-03_liblightdm-qt3-add-header-visibility.patch
 01_set-default-path.patch
 02_fix-apparmor-profile.patch
 05_debianize-pam-files.patch
 06_change-user-dirs.patch
 08_reset-SIGPIPE-before-exec.patch
-09_hide_systemd_nologin.patch
+0006-Add-ICEAuthority-file-to-the-AppArmor-profile-for-gu.patch
+# deepin patches
 add_nopasswdlogin.patch
 0001-multi-pipe-mode.patch
 10-dm-tool-lock-function-patch.patch

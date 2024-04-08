@@ -45,6 +45,7 @@ enum
     USER_PROP_HAS_MESSAGES,
     USER_PROP_UID,
     USER_PROP_GID,
+    USER_PROP_IS_LOCKED,
 };
 
 enum
@@ -139,6 +140,9 @@ typedef struct
 
     /* User default session */
     gchar *session;
+
+    /* TRUE if this user is locked */
+    gboolean is_locked;
 } CommonUserPrivate;
 
 typedef struct
@@ -153,8 +157,8 @@ typedef struct
     GObjectClass parent_class;
 } CommonSessionClass;
 
-G_DEFINE_TYPE (CommonUserList, common_user_list, G_TYPE_OBJECT)
-G_DEFINE_TYPE (CommonUser, common_user, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE (CommonUserList, common_user_list, G_TYPE_OBJECT)
+G_DEFINE_TYPE_WITH_PRIVATE (CommonUser, common_user, G_TYPE_OBJECT)
 #define COMMON_SESSION(obj) (G_TYPE_CHECK_INSTANCE_CAST ((obj), common_session_get_type (), CommonSession))
 GType common_session_get_type (void);
 G_DEFINE_TYPE (CommonSession, common_session, G_TYPE_OBJECT)
@@ -511,7 +515,7 @@ load_accounts_user (CommonUser *user)
         return FALSE;
 
     /* Store the properties we need */
-    GVariantIter *iter;
+    g_autoptr(GVariantIter) iter = NULL;
     g_variant_get (result, "(a{sv})", &iter);
     const gchar *name;
     GVariant *value;
@@ -560,8 +564,9 @@ load_accounts_user (CommonUser *user)
         }
         else if (strcmp (name, "Uid") == 0 && g_variant_is_of_type (value, G_VARIANT_TYPE_UINT64))
             priv->uid = g_variant_get_uint64 (value);
+        else if (strcmp (name, "Locked") == 0 && g_variant_is_of_type (value, G_VARIANT_TYPE_BOOLEAN))
+            priv->is_locked = g_variant_get_boolean (value);
     }
-    g_variant_iter_free (iter);
 
     g_autoptr(GVariant) extra_result = g_dbus_connection_call_sync (priv->bus,
                                                                     "org.freedesktop.Accounts",
@@ -577,8 +582,10 @@ load_accounts_user (CommonUser *user)
     if (error)
         g_warning ("Error updating user %s: %s", priv->path, error->message);
     if (extra_result) {
-        g_variant_get (extra_result, "(a{sv})", &iter);
-        while (g_variant_iter_loop (iter, "{&sv}", &name, &value))
+        g_autoptr(GVariantIter) extra_iter = NULL;
+
+        g_variant_get (extra_result, "(a{sv})", &extra_iter);
+        while (g_variant_iter_loop (extra_iter, "{&sv}", &name, &value))
         {
             if (strcmp (name, "BackgroundFile") == 0 && g_variant_is_of_type (value, G_VARIANT_TYPE_STRING))
             {
@@ -600,7 +607,6 @@ load_accounts_user (CommonUser *user)
                 }
             }
         }
-        g_variant_iter_free (iter);
     }
 
     return !system_account;
@@ -841,12 +847,11 @@ load_sessions (CommonUserList *user_list)
             g_variant_get (result, "(v)", &value);
 
             g_debug ("Loading sessions from org.freedesktop.DisplayManager");
-            GVariantIter *iter;
+            g_autoptr(GVariantIter) iter = NULL;
             g_variant_get (value, "ao", &iter);
             const gchar *path;
             while (g_variant_iter_loop (iter, "&o", &path))
                 load_session (user_list, path);
-            g_variant_iter_free (iter);
         }
         else
             g_warning ("Unexpected type from org.freedesktop.DisplayManager.Sessions: %s", g_variant_get_type_string (result));
@@ -901,12 +906,11 @@ load_users (CommonUserList *user_list)
     if (result)
     {
         g_debug ("Loading users from org.freedesktop.Accounts");
-        GVariantIter *iter;
+        g_autoptr(GVariantIter) iter = NULL;
         g_variant_get (result, "(ao)", &iter);
         const gchar *path;
         while (g_variant_iter_loop (iter, "&o", &path))
             add_accounts_user (user_list, path, FALSE);
-        g_variant_iter_free (iter);
     }
     else
     {
@@ -1057,8 +1061,6 @@ static void
 common_user_list_class_init (CommonUserListClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-    g_type_class_add_private (klass, sizeof (CommonUserListPrivate));
 
     object_class->set_property = common_user_list_set_property;
     object_class->get_property = common_user_list_get_property;
@@ -1389,7 +1391,7 @@ common_user_get_session (CommonUser *user)
 /**
  * common_user_set_session:
  * @user: A #CommonUser
- * @language: The user's new session
+ * @session: The user's new session
  *
  * Set the session for a user.
  **/
@@ -1478,6 +1480,21 @@ common_user_get_gid (CommonUser *user)
     return priv->gid;
 }
 
+/**
+ * common_user_get_is_locked:
+ * @user: A #CommonUser
+ *
+ * Check if a user is locked.
+ *
+ * Return value: %TRUE if the user is locked.
+ **/
+gboolean
+common_user_get_is_locked (CommonUser *user)
+{
+    g_return_val_if_fail (COMMON_IS_USER (user), FALSE);
+    return GET_USER_PRIVATE (user)->is_locked;
+}
+
 static void
 common_user_init (CommonUser *user)
 {
@@ -1550,6 +1567,9 @@ common_user_get_property (GObject    *object,
     case USER_PROP_GID:
         g_value_set_uint64 (value, common_user_get_gid (self));
         break;
+    case USER_PROP_IS_LOCKED:
+        g_value_set_boolean (value, common_user_get_is_locked (self));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
         break;
@@ -1581,8 +1601,6 @@ static void
 common_user_class_init (CommonUserClass *klass)
 {
     GObjectClass *object_class = G_OBJECT_CLASS (klass);
-
-    g_type_class_add_private (klass, sizeof (CommonUserPrivate));
 
     object_class->set_property = common_user_set_property;
     object_class->get_property = common_user_get_property;
@@ -1697,7 +1715,13 @@ common_user_class_init (CommonUserClass *klass)
                                                           G_MAXUINT64,
                                                           0,
                                                           G_PARAM_READWRITE));
-
+    g_object_class_install_property (object_class,
+                                     USER_PROP_IS_LOCKED,
+                                     g_param_spec_boolean ("is-locked",
+                                                           "is-locked",
+                                                           "TRUE if the user is currently locked",
+                                                           FALSE,
+                                                           G_PARAM_READABLE));
     /**
      * CommonUser::changed:
      * @user: A #CommonUser
