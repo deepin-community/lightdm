@@ -1,3 +1,9 @@
+lightdm (1.30.0-0deepin2) unstable; urgency=medium
+
+  * Remove the default display-manager link.
+
+ -- lichenggang <lichenggang@deepin.org>  Tue, 19 Nov 2024 10:46:08 +0800
+
 lightdm (1.30.0-0deepin1) unstable; urgency=medium
 
   * New upstream version 1.30.0
