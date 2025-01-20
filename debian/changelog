@@ -1,3 +1,9 @@
+lightdm (1.30.0-0deepin3) unstable; urgency=medium
+
+  * chore: adapt to Qt6.
+
+ -- zhaoyingzhen <zhaoyingzhen@uniontech.com>  Thu, 23 Jan 2025 14:06:08 +0800
+
 lightdm (1.30.0-0deepin2) unstable; urgency=medium
 
   * Remove the default display-manager link.
