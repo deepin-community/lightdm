@@ -20,3 +20,4 @@ uos-02-fix-shell-nologin.patch
 uos-03-feat-can-switch-active-session.patch
 0002-feat-whitebox-scheme-adjustment.patch
 chore-adapt-to-qt6.patch
+uos-12-feat-dde-quick-login.patch
