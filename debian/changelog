@@ -1,3 +1,9 @@
+lightdm (1.30.0-0deepin4) unstable; urgency=medium
+
+  * feat: add dde quick login feature.
+
+ -- zhaoyingzhen <zhaoyingzhen@uniontech.com>  Wed, 04 Jun 2025 11:36:08 +0800
+
 lightdm (1.30.0-0deepin3) unstable; urgency=medium
 
   * chore: adapt to Qt6.
