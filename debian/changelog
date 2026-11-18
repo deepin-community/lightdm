@@ -1,3 +1,9 @@
+lightdm (1.30.0-0deepin9) unstable; urgency=medium
+
+  * feat: port V20 remote greeter login and single logon support to V25.
+
+ -- hanxueyan <hanxueyan@uniontech.com>  Wed, 18 Nov 2026 16:51:22 +0800
+
 lightdm (1.30.0-0deepin8) unstable; urgency=medium
 
   * fix: CVE-2026-129246 local privilege escalation. Drop
