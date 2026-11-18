@@ -1,3 +1,12 @@
+lightdm (1.30.0-0deepin8) unstable; urgency=medium
+
+  * fix: CVE-2026-129246 local privilege escalation. Drop
+    06_change-user-dirs.patch to restore USERS_DIR to
+    /var/lib/lightdm-data, outside the lightdm user's home, and ship
+    debian/lightdm.dirs to create it. Enforce root ownership in postinst.
+
+ -- fuleyi <fuleyi@uniontech.com>  Wed, 18 Nov 2026 10:30:00 +0800
+
 lightdm (1.30.0-0deepin7) unstable; urgency=medium
 
   * Rebuild with LTO enabled (dpkg vendor feature optimize/lto).
