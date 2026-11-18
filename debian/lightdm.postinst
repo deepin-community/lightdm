@@ -25,6 +25,10 @@ mkdir -p /var/lib/lightdm
 chown lightdm:lightdm /var/lib/lightdm
 chmod 0750 /var/lib/lightdm
 
+# The shared data directory is chowned by the root lightdm process, so it
+# must not be writable by the lightdm user (CVE-2026-129246).
+install -d -o root -g root -m 0755 /var/lib/lightdm-data
+
 # debconf is not a registry, so we only fiddle with the default file if it
 # does not exist
 if [ ! -e "$DEFAULT_DISPLAY_MANAGER_FILE" ]; then
